@@ -9,8 +9,23 @@ namespace pr {
 void Banque::transfert(size_t deb, size_t cred, unsigned int val) {
 	Compte & debiteur = comptes[deb];
 	Compte & crediteur = comptes[cred];
-	if (debiteur.debiter(val)) {
-		crediteur.crediter(val);
+	int debite = 0;
+	if (debiteur.try_lock()) {
+		if(crediteur.try_lock()){
+
+			if (debite=debiteur.debiter(val)) {
+				std::cout << "transfert de " << deb << " à " << cred << " : " << val << std::endl;
+					crediteur.crediter(val);
+			} else {
+				std::cout << "transfert echouee de " << deb << " à " << cred << " : " << val << std::endl;
+			}
+			crediteur.unlock();
+		} else {
+			std::cout << "transfert echouee de " << deb << " à " << cred << " : " << val << std::endl;
+		}
+		debiteur.unlock();
+	} else {
+		std::cout << "transfert echouee de " << deb << " à " << cred << " : " << val << std::endl;
 	}
 }
 size_t Banque::size() const {
