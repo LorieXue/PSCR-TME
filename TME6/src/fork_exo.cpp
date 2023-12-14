@@ -8,7 +8,6 @@ int main () {
 	const int N = 3;
 	std::cout << "main pid=" << getpid() << std::endl;
 	int i,j;
-	int cpt=0;
 	// i le nombre de fils que va créer le processus
 	// j le nombre max de fils crée
 	for (i=1, j=N, cpt = 1; i<=N && j==N && fork()==0 ; i++ ) {
@@ -20,7 +19,6 @@ int main () {
 				std::cout << " k:j " << k << ":" << j << std::endl;
 				exit(0);
 			}
-			cpt++;
 		}
 	}
 	for(int l = 0; l < std::min(i,j); l++){
@@ -31,6 +29,7 @@ int main () {
 	if (wait(0) != -1){
 		cout << "J'ai pas assez attendu =(" << getpid() << endl;
 	}
-	std::cout << " i:j " << i << ":" << j  << " " << min(i,j)<< std::endl;
+	std::cout << " ---------- "<< std::endl;
+	std::cout << " i:j " << i << ":" << j  << " " << min(i,j) << " " << std::endl;
 	return 0;
 }
