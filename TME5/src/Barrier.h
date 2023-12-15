@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <cstdlib>
+#include <iostream>
 
 namespace pr{
 
@@ -31,7 +32,6 @@ public:
 void Barrier::done(){
 	std::unique_lock<std::mutex> lg(m);
 	cpt++;
-	std::cout << cpt << std::endl;
 	if(cpt==goal){
 		std::cout << "goal atteint" << std::endl;
 		cond.notify_all();

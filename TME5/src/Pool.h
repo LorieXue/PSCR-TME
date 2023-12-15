@@ -45,9 +45,10 @@ void Pool::submit(Job* job){
 
 void Pool::stop(){
 	std::cout << "waiting threads finishing" << std::endl;
-	queue.setBlocking(false);
+	queue.setBlocking(true);
 	for(auto& t : threads){
 		t.join();
+
 	}
 	threads.clear();
 }

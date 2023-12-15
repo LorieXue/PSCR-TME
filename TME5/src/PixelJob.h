@@ -16,7 +16,7 @@ int findClosestInter(const Scene & scene, const Rayon & ray) {
 	for (const auto & obj : scene) {
 		// rend la distance de l'objet a la camera
 		auto zinter = obj.intersects(ray);
-		// si intersection plus proche  ?
+		// si intersection plus proche
 		if (zinter < minz) {
 			minz = zinter;
 			targetSphere = index;
@@ -31,7 +31,7 @@ Color computeColor(const Sphere & obj, const Rayon & ray, const Vec3D & camera, 
 
 	// calcul du rayon et de sa normale a la sphere
 	// on prend le vecteur de la camera vers le point de l'ecran (dest - origine)
-	// on le normalise a la longueur 1, on multiplie par la distance à l'intersection
+	// on le normalise a la longueur 1, on multiplie par la distance �� l'intersection
 	Vec3D rayInter = (ray.dest - ray.ori).normalize() * obj.intersects(ray);
 	// le point d'intersection
 	Vec3D intersection = rayInter + camera;
@@ -55,7 +55,8 @@ Color computeColor(const Sphere & obj, const Rayon & ray, const Vec3D & camera, 
 }
 
 class PixelJob : public Job {
-	void calcul (int x, int y, const Scene::screen_t& screen, Color* pixels, Scene& scene, std::vector<Vec3D>& lights) {
+
+	void traitement_un_pixel(int& x, int& y, const Scene::screen_t& screen, Color* pixels, Scene& scene, std::vector<Vec3D>& lights){
 		// le point de l'ecran par lequel passe ce rayon
 		auto & screenPoint = screen[y][x];
 		// le rayon a inspecter
@@ -76,17 +77,23 @@ class PixelJob : public Job {
 			pixel = finalcolor;
 		}
 	}
-	int x,y;
+
+	void calcul (int& xmin, int& xmax, int& y, const Scene::screen_t& screen, Color* pixels, Scene& scene, std::vector<Vec3D>& lights) {
+		for(int x = xmin; x<xmax;x++){
+			traitement_un_pixel(x, y, screen, pixels, scene, lights);
+		}
+	}
+	int xmin,xmax,y;
 	const Scene::screen_t& screen;
 	Color* pixels;
-	Scene scene;
+	Scene& scene;
 	std::vector<Vec3D> lights;
 	Barrier* b;
 public :
-	PixelJob(int x, int y, const Scene::screen_t& screen, Color* pixels, Scene scene, std::vector<Vec3D>& lights, Barrier* b) :
-		x(x), y(y), screen(screen), pixels(pixels), scene(scene), lights(lights), b(b) {}
+	PixelJob(int xmin, int xmax, int y, const Scene::screen_t& screen, Color* pixels, Scene& scene, std::vector<Vec3D>& lights, Barrier* b) :
+		xmin(xmin), xmax(xmax), y(y), screen(screen), pixels(pixels), scene(scene), lights(lights), b(b) {}
 	void run () {
-		calcul(x,y,screen,pixels,scene,lights);
+		calcul(xmin,xmax,y,screen,pixels,scene,lights);
 		b->done();
 	}
 	~PixelJob(){}

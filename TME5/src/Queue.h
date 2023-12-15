@@ -37,8 +37,11 @@ public:
 	}
 	T* pop() {
 		std::unique_lock<std::mutex> lg(m);
-		while(empty() && isBlocking) {
+		while(empty() && !isBlocking) {
 			cond.wait(lg);
+		}
+		if(isBlocking){
+			return nullptr;
 		}
 		if(full()){
 			cond.notify_all();

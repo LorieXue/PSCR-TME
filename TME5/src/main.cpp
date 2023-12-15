@@ -13,7 +13,7 @@
 using namespace std;
 using namespace pr;
 
-#define N 8
+#define N 16
 
 
 void fillScene(Scene & scene, default_random_engine & re) {
@@ -56,15 +56,15 @@ int findClosestInter(const Scene & scene, const Rayon & ray) {
 }
 */
 
-// Calcule l'angle d'incidence du rayon à la sphere, cumule l'éclairage des lumières
-// En déduit la couleur d'un pixel de l'écran.
+// Calcule l'angle d'incidence du rayon �� la sphere, cumule l'��clairage des lumi��res
+// En d��duit la couleur d'un pixel de l'��cran.
 /*
 Color computeColor(const Sphere & obj, const Rayon & ray, const Vec3D & camera, std::vector<Vec3D> & lights) {
 	Color finalcolor = obj.getColor();
 
 	// calcul du rayon et de sa normale a la sphere
 	// on prend le vecteur de la camera vers le point de l'ecran (dest - origine)
-	// on le normalise a la longueur 1, on multiplie par la distance à l'intersection
+	// on le normalise a la longueur 1, on multiplie par la distance �� l'intersection
 	Vec3D rayInter = (ray.dest - ray.ori).normalize() * obj.intersects(ray);
 	// le point d'intersection
 	Vec3D intersection = rayInter + camera;
@@ -87,7 +87,7 @@ Color computeColor(const Sphere & obj, const Rayon & ray, const Vec3D & camera, 
 	return finalcolor;
 }*/
 
-// produit une image dans path, représentant les pixels.
+// produit une image dans path, repr��sentant les pixels.
 void exportImage(const char * path, size_t width, size_t height, Color * pixels) {
 	// ppm est un format ultra basique
 	ofstream img (path);
@@ -116,7 +116,7 @@ int main () {
 	default_random_engine re(chrono::system_clock::now().time_since_epoch().count());
 	// definir la Scene : resolution de l'image
 	Scene scene (1000,1000);
-	// remplir avec un peu d'aléatoire
+	// remplir avec un peu d'al��atoire
 	fillScene(scene, re);
 	
 	// lumieres 
@@ -126,23 +126,19 @@ int main () {
 	lights.emplace_back(Vec3D(50, 50, 120));
 	lights.emplace_back(Vec3D(200, 0, 120));
 
-	// les points de l'ecran, en coordonnées 3D, au sein de la Scene.
+	// les points de l'ecran, en coordonn��es 3D, au sein de la Scene.
 	// on tire un rayon de l'observateur vers chacun de ces points
 	const Scene::screen_t & screen = scene.getScreenPoints();
 
 	// Les couleurs des pixelsjob dans l'image finale
 	Color * pixels = new Color[scene.getWidth() * scene.getHeight()];
-	Pool pool(16);
-	Barrier b(scene.getWidth()*scene.getHeight());
+	Pool pool(1000);
+	Barrier b(scene.getHeight());
 	pool.start(N);
 	// pour chaque pixel, calculer sa couleur
-	for (int x =0 ; x < scene.getWidth() ; x++) {
-		for (int  y = 0 ; y < scene.getHeight() ; y++){
-			pool.submit(new PixelJob(x,y,screen,pixels,scene,lights,&b));
-			cout << x << ", " << y << " submitting job" << endl;
-		}
+	for (int  y = 0 ; y < scene.getHeight() ; y++){
+		pool.submit(new PixelJob(0,scene.getWidth(),y,screen,pixels,std::ref(scene),lights,&b));
 	}
-	cout << "hi" << endl;
 	b.waitFor();
 	pool.stop();
 
