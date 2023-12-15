@@ -2,9 +2,11 @@
 #include <iostream>
 #include <unistd.h>
 #include <signal.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <vector>
+#include <semaphore.h>
 
 
 using namespace std;
@@ -13,36 +15,50 @@ using namespace pr;
 #define N 1
 #define M 2
 bool b = true;
+Stack<char> * s;
+sem_t* sem;
 
 void producteur (Stack<char> * stack) {
 	char c ;
 	while (cin.get(c) && b) {
-		cout << "prod " << c << endl;
+		cout << b << endl;
+		sem_wait(sem);
 		stack->push(c);
-		cout << "prod end" << endl;
+		sem_post(sem);
 	}
 }
 
 void consomateur (Stack<char> * stack) {
 	while (b) {
-		cout << "cons" <<endl;
+		cout << b << endl;
+		sem_wait(sem);
 		char c = stack->pop();
 		cout << c << flush ;
+		sem_post(sem);
 	}
 }
 
+void signalHandler(int sig) {
+	b= false;
+	sem_post(sem);
+}
 
 int main () {
-	void* ptr = mmap(NULL, sizeof(Stack<char>),PROT_WRITE|PROT_READ,MAP_SHARED|MAP_ANONYMOUS,-1,0);
-	if (ptr == MAP_FAILED) {
+	signal(SIGINT, signalHandler);
+
+	// Crée mem partagé
+	int shm_fd = shm_open("/shm", O_CREAT | O_RDWR, 0666);
+	ftruncate(shm_fd, sizeof(Stack<char>)); // alloue mémoire
+
+	// crée sem
+	sem = sem_open("/sem", O_CREAT | O_EXCL, 0666, 1);
+
+	s = (Stack<char>*)mmap(NULL, sizeof(Stack<char>), PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
+	if (s == MAP_FAILED) {
 	    // Handle the error
 	    perror("mmap");
 	    exit(EXIT_FAILURE);
 	}
-	Stack<char> * s = new (ptr) Stack<char>();
-	signal(SIGINT,[](int sig){
-		b=false;
-	});
 	vector<pid_t> sons;
 	sons.reserve(N+M);
 	for(int i=0;i<N;i++){
@@ -73,8 +89,11 @@ int main () {
 	for(int i=0;i<N+M;i++)
 		wait(0);
 
-	munmap(ptr, sizeof(Stack<char>));
-	delete s;
+	// libère la case de la mémoire partag
+	munmap(s, sizeof(Stack<char>));
+	sem_close(sem);
+	shm_unlink("/shm");
+	sem_unlink("/sem");
 	return 0;
 }
 

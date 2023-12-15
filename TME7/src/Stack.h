@@ -26,7 +26,8 @@ public :
 		cout << "pop" << endl;
 		sem_wait(&s_cons);
 		sem_wait(&mutex);
-		T toret = tab[--sz];
+		T toret = tab[sz-1];
+		sz--;
 		sem_post(&mutex);
 		sem_post(&s_prod);
 		return toret;
