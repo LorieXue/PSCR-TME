@@ -4,6 +4,7 @@
 #include "Socket.h"
 #include <sys/socket.h>
 #include <iostream>
+#include <unistd.h>
 
 namespace pr {
 
@@ -46,16 +47,20 @@ ServerSocket::ServerSocket(int port){
 }
 
 Socket ServerSocket::accept(){
-	int clientfd = ::accept(socketfd,0,0);
-	struct sockaddr_in addr;
-	socklen_t len = sizeof(addr);
-	if((clientfd=::accept(socketfd,(struct sockaddr*) &addr,&len))==-1){
-		perror("accept socket error");
-		exit(-1);
-	}
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    int clientfd = ::accept(socketfd, (struct sockaddr*)&addr, &len);
+    if (clientfd == -1) {
+        perror("accept socket error");
+        exit(-1);
+    }
 	std::cout << "Connexion de " << inet_ntoa(addr.sin_addr) << std::endl;
 	return clientfd;
+}
 
+void ServerSocket::close(){
+	shutdown(socketfd,SHUT_RDWR);
+	::close(socketfd);
 }
 } // ns pr
 #endif /* SRC_SERVERSOCKET_H_ */

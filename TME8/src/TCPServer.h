@@ -3,8 +3,15 @@
 
 #include <thread>
 #include <vector>
+#include <sys/select.h>
+#include <signal.h>
 #include "ServerSocket.h"
 #include "ConnectionHandler.h"
+#include <functional>
+#include <unistd.h>
+#include <iostream>
+#include <cstring>
+
 
 namespace pr {
 
@@ -13,60 +20,77 @@ class TCPServer {
 	ServerSocket * ss; // la socket d'attente si elle est instanciee
 	ConnectionHandler * handler; // le gestionnaire de session passe a la constru
 	std::vector<std::thread> threads;
+	static int stopper[2];
+	static int selected;
 
 
 public :
 	TCPServer(ConnectionHandler * handler): ss(nullptr),handler(handler) {
 	}
+
+	static void signalHandler(int sig) {
+	    if (sig == SIGINT) {
+	    	const char* message = "stop";
+	        write(stopper[1], message, std::strlen(message));
+	    }
+	}
+
 	// Tente de creer une socket d'attente sur le port donné
 	bool startServer (int port){
 		int i;
+	    if (pipe(stopper) == -1) {
+	        perror("pipe error");
+	        exit(EXIT_FAILURE);
+	    }
+	    signal(SIGINT, signalHandler);
 		pr::ServerSocket serv = ServerSocket(port);
 		if(!serv.isOpen()){
+		    close(stopper[0]);
+		    close(stopper[1]);
 			exit(-1);
 		}
+		ss = &serv;
 		while(true){
+			fd_set set;
+			FD_ZERO(&set);
+			FD_SET(ss->getFD(),&set);
+			std::cout << ss->getFD() <<std::endl;
+			FD_SET(stopper[1],&set);
+			int maxfd = std::max(ss->getFD(), stopper[1]) + 1;
 			std::cout << "En attente" << std::endl;
-			pr::Socket sc = serv.accept();
-			handler->handleConnection(sc);
-			threads.emplace_back([](pr::Socket sc,pr::ConnectionHandler* handler){
+			std::cout << "selecting" <<std::endl;
+			if ((selected = ::select(maxfd, &set, nullptr, nullptr, nullptr)) == -1) {
+//			        std::cerr << "Error in select." << std::endl;
+//			        this->stopServer();
+//			        return false;
+			}
+			if(FD_ISSET(stopper[1], &set)){
+				std::cout << "stop" <<std::endl;
+				this->stopServer();
+				return false;
+			}
+			if(FD_ISSET(ss->getFD(), &set)){
+				std::cout << "need connect" <<std::endl;
+				std::cout << ss->getFD() <<std::endl;
+				pr::Socket sc = ss->accept();
+				std::cout << "accepted" <<std::endl;
 				handler->handleConnection(sc);
-			},sc,handler);
+				threads.emplace_back([](pr::Socket sc,pr::ConnectionHandler* handler){
+					handler->handleConnection(sc);
+				},sc,handler);
+			}
+			std::cout << "????" <<std::endl;
+
 		}
+		return true;
 	}
 
 	// stoppe le serveur
 	void stopServer () {
 		ss->close();
-
-
-		fd_set set;
-		FD_ZERO(&set);
-		FD_SET(ss->getFD(),&set);
-		FD_SET(STDIN_FILENO,&set);
-
-		while(true){
-			fd_set tmpSet = set;
-			int result = select(STDIN_FILENO + 1, &tmpSet, nullptr, nullptr, nullptr);
-			if (result == -1) {
-				perror("select");
-				break;
-			} else if (result > 0) {
-				// Parcourir tous les descripteurs de fichiers et vérifier leur état
-				for (int fd : fileDescriptors) {
-					if (FD_ISSET(fd, &tmpReadSet)) {
-						std::cout << "FD " << fd << " is ready" << std::endl;
-					}
-				}
-			} else {
-				// result == 0 signifie qu'aucun descripteur de fichier n'est prêt à être lu
-				// Vous pouvez ajouter un traitement ici si nécessaire
-			}
-
-			// Vous pouvez ajouter une condition pour arrêter la boucle
-			// par exemple, si un descripteur de fichier atteint un état spécifique
-			}
-		}
+	    close(stopper[0]);
+	    close(stopper[1]);
+		delete handler;
 	}
 
 	~TCPServer(){
@@ -75,6 +99,9 @@ public :
 		}
 	}
 };
+
+int TCPServer::stopper[2] = {-1, -1};
+int TCPServer::selected = -1;
 
 } // ns pr
 
